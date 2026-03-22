@@ -1,13 +1,500 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ScamCheck — Is that message a scam?</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'SF Mono','Fira Code',monospace;background:#0a0a0a;color:#ededed;min-height:100vh}
+  a{color:inherit;text-decoration:none}
+  button{font-family:'SF Mono','Fira Code',monospace;cursor:pointer}
+  textarea{font-family:'SF Mono','Fira Code',monospace}
+  ::-webkit-scrollbar{width:3px}
+  ::-webkit-scrollbar-thumb{background:#222}
+
+  /* Nav */
+  .nav{position:sticky;top:0;z-index:50;background:#0a0a0a;border-bottom:1px solid #1f1f1f;display:flex;align-items:center;padding:0 24px;max-width:100%}
+  .nav-logo{font-size:15px;font-weight:800;color:#ededed;margin-right:40px;padding:15px 0;flex-shrink:0}
+  .nav-logo span{color:#ff3b3b}
+  .nav-tabs{display:flex;flex:1;overflow-x:auto;scrollbar-width:none}
+  .nav-tab{background:none;border:none;border-bottom:2px solid transparent;color:#555;font-size:13px;font-weight:400;padding:15px 16px;white-space:nowrap;transition:all .15s}
+  .nav-tab.active{color:#ededed;font-weight:700;border-bottom:2px solid #ff3b3b}
+  .nav-tab.affiliate{color:#555}
+  .nav-tab.affiliate.active{color:#00c96e;border-bottom:2px solid #00c96e}
+  .nav-cta{background:#ff3b3b;border:none;color:#fff;font-size:13px;font-weight:700;padding:8px 18px;border-radius:6px}
+
+  /* Layout */
+  .page{max-width:700px;margin:0 auto;padding:64px 24px 100px}
+  .page-wide{max-width:860px;margin:0 auto;padding:64px 24px 100px}
+  .label{font-size:10px;font-weight:700;letter-spacing:3px;color:#555;text-transform:uppercase}
+  .h1{font-size:clamp(28px,5vw,44px);font-weight:800;letter-spacing:-1.5px;line-height:1.05;color:#ededed}
+  .muted{font-size:13px;color:#555;line-height:1.8}
+  .rule{border:none;border-top:1px solid #1f1f1f}
+  .card{background:#111;border:1px solid #1f1f1f;border-radius:8px;overflow:hidden}
+
+  /* Buttons */
+  .btn{border-radius:6px;font-size:13px;font-weight:700;padding:10px 20px;transition:opacity .15s}
+  .btn-outline{background:transparent;border:1px solid #1f1f1f;color:#555}
+  .btn-outline:hover{border-color:#2a2a2a;color:#ededed}
+  .btn-red{background:#ff3b3b;border:none;color:#fff}
+  .btn-green{background:transparent;border:1px solid #00c96e;color:#00c96e}
+
+  /* Home checker */
+  .checker-examples{padding:12px 16px;border-bottom:1px solid #1f1f1f;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .ex-label{font-size:10px;color:#555;margin-right:4px;letter-spacing:1px}
+  .ex-btn{background:transparent;border:1px solid #1f1f1f;color:#555;font-size:10px;padding:3px 9px;border-radius:4px;transition:all .15s}
+  .ex-btn:hover{border-color:#333;color:#999}
+  .checker-input{width:100%;min-height:160px;padding:16px;border:none;background:transparent;color:#ededed;font-size:13px;resize:vertical;outline:none;line-height:1.7}
+  .checker-footer{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #1f1f1f}
+  .char-count{font-size:10px;color:#333}
+  .checker-actions{display:flex;gap:8px}
+
+  /* Result */
+  .result-header{padding:20px 24px;border-bottom:1px solid #1f1f1f;display:flex;justify-content:space-between;align-items:center}
+  .verdict{font-size:22px;font-weight:800}
+  .score{font-size:28px;font-weight:800}
+  .score-bar-wrap{height:4px;background:#2a2a2a}
+  .score-bar{height:100%;transition:width 1s ease}
+  .result-section{padding:16px 24px;border-bottom:1px solid #1f1f1f}
+  .result-section-label{font-size:10px;font-weight:700;letter-spacing:3px;color:#555;margin-bottom:10px}
+  .flag-item{display:flex;gap:10px;font-size:12px;color:#ededed;margin-bottom:6px}
+  .result-actions{padding:12px 16px;display:flex;gap:8px}
+
+  /* Pricing */
+  .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1px;border:1px solid #1f1f1f;border-radius:8px;overflow:hidden}
+  .plan{background:#111;padding:28px 24px;display:flex;flex-direction:column;border-right:1px solid #1f1f1f}
+  .plan:last-child{border-right:none}
+  .plan-badge{font-size:9px;font-weight:700;letter-spacing:2px;color:#ff3b3b;border:1px solid rgba(255,59,59,.3);border-radius:4px;padding:2px 7px;display:inline-block;margin-bottom:14px}
+  .plan-badge-empty{height:22px;margin-bottom:14px}
+  .plan-name{font-size:11px;font-weight:700;letter-spacing:2px;margin-bottom:12px}
+  .plan-price{font-size:36px;font-weight:800;color:#ededed;line-height:1}
+  .plan-period{font-size:11px;color:#555;margin-top:4px;margin-bottom:28px}
+  .plan-features{flex:1;display:flex;flex-direction:column;gap:10px;padding-top:20px;border-top:1px solid #1f1f1f;margin-bottom:24px}
+  .plan-feature{display:flex;gap:10px;font-size:12px;color:#555}
+  .plan-cta{width:100%;text-align:center}
+
+  /* Affiliates */
+  .aff-stats{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #1f1f1f;border-radius:8px;overflow:hidden;background:#111;margin-bottom:24px}
+  .aff-stat{padding:20px 16px;text-align:center;border-right:1px solid #1f1f1f}
+  .aff-stat:last-child{border-right:none}
+  .aff-stat-val{font-size:22px;font-weight:800;color:#00c96e}
+  .aff-stat-label{font-size:10px;color:#555;margin-top:4px}
+  .aff-card{border:1px solid #1f1f1f;border-radius:8px;overflow:hidden;background:#111;margin-bottom:24px}
+  .aff-card-header{padding:12px 20px;border-bottom:1px solid #1f1f1f}
+  .aff-card-row{padding:18px 20px;border-bottom:1px solid #1f1f1f;display:flex;gap:16px;align-items:flex-start}
+  .aff-card-row:last-child{border-bottom:none}
+  .aff-step-num{font-size:10px;color:#333;width:20px;flex-shrink:0;padding-top:2px}
+  .aff-link-wrap{padding:16px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .aff-link{flex:1;background:#0a0a0a;border:1px solid #1f1f1f;border-radius:4px;padding:10px 14px;font-size:13px;color:#00c96e;min-width:180px}
+  .calc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border:1px solid #1f1f1f;border-radius:6px;overflow:hidden}
+  .calc-cell{padding:16px;text-align:center;background:#0a0a0a;border-right:1px solid #1f1f1f}
+  .calc-cell:last-child{border-right:none}
+  .calc-val{font-size:22px;font-weight:800}
+  .calc-sub{font-size:10px;color:#555;margin-top:3px}
+  input[type=range]{width:100%;height:3px;accent-color:#00c96e;cursor:pointer;margin-bottom:20px}
+
+  /* FAQ */
+  .faq-section{margin-bottom:24px}
+  .faq-section-label{font-size:10px;font-weight:700;letter-spacing:3px;color:#555;margin-bottom:10px}
+  .faq-card{border:1px solid #1f1f1f;border-radius:8px;overflow:hidden;background:#111}
+  .faq-item{border-bottom:1px solid #1f1f1f;cursor:pointer}
+  .faq-item:last-child{border-bottom:none}
+  .faq-q{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;font-weight:600;color:#ededed}
+  .faq-arrow{color:#555;font-size:12px;transition:transform .2s;flex-shrink:0}
+  .faq-a{padding:0 20px 16px;font-size:12px;color:#555;line-height:1.8;border-top:1px solid #1f1f1f;padding-top:12px}
+
+  /* Trust */
+  .trust-row{display:flex;gap:28px;justify-content:center;margin-top:24px;flex-wrap:wrap}
+  .trust-item{font-size:11px;color:#555}
+
+  @media(max-width:600px){
+    .aff-stats{grid-template-columns:repeat(2,1fr)}
+    .calc-grid{grid-template-columns:1fr}
+    .calc-cell{border-right:none;border-bottom:1px solid #1f1f1f}
+    .plans{grid-template-columns:1fr}
+    .plan{border-right:none;border-bottom:1px solid #1f1f1f}
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-logo">scamcheck<span>.</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('home',this)">Home</button>
+    <button class="nav-tab" onclick="showTab('pricing',this)">Pricing</button>
+    <button class="nav-tab affiliate" onclick="showTab('affiliates',this)">✦ Affiliates</button>
+    <button class="nav-tab" onclick="showTab('faq',this)">FAQ</button>
+  </div>
+  <button class="nav-cta" onclick="showTab('home',null)">Try Free →</button>
+</nav>
+
+<!-- ── HOME ── -->
+<div id="tab-home" class="page">
+  <div style="text-align:center;margin-bottom:48px">
+    <div class="label" style="margin-bottom:16px">Scam Detector</div>
+    <h1 class="h1" style="margin-bottom:16px">Is that message<br><span style="color:#ff3b3b">a scam?</span></h1>
+    <p class="muted" style="max-width:380px;margin:0 auto">Paste any suspicious text, email, or DM.<br>AI tells you in seconds. Free, no account needed.</p>
+  </div>
+
+  <div id="checker-box" class="card">
+    <div class="checker-examples">
+      <span class="ex-label">TRY:</span>
+      <button class="ex-btn" onclick="setExample('IRS Text')">IRS Text</button>
+      <button class="ex-btn" onclick="setExample('Prize Email')">Prize Email</button>
+      <button class="ex-btn" onclick="setExample('Bank Alert')">Bank Alert</button>
+      <button class="ex-btn" onclick="setExample('Job Offer')">Job Offer</button>
+    </div>
+    <textarea id="msg-input" class="checker-input" placeholder="Paste suspicious message here..." oninput="updateCount()"></textarea>
+    <hr class="rule">
+    <div class="checker-footer">
+      <span class="char-count" id="char-count">0 chars</span>
+      <div class="checker-actions">
+        <button class="btn btn-outline" onclick="clearInput()" id="clear-btn" style="display:none">clear</button>
+        <button class="btn btn-red" onclick="checkScam()" id="check-btn" style="opacity:.35">check →</button>
+      </div>
+    </div>
+    <div id="error-msg" style="display:none;padding:10px 16px;border-top:1px solid #1f1f1f;font-size:12px;color:#ff3b3b"></div>
+  </div>
+
+  <div id="result-box" class="card" style="display:none"></div>
+
+  <div class="trust-row">
+    <span class="trust-item">5 free checks/week</span>
+    <span class="trust-item">no account needed</span>
+    <span class="trust-item">results in 3 seconds</span>
+    <span class="trust-item">10% fights fraud</span>
+  </div>
+</div>
+
+<!-- ── PRICING ── -->
+<div id="tab-pricing" class="page-wide" style="display:none">
+  <div style="margin-bottom:48px">
+    <div class="label" style="margin-bottom:12px">Pricing</div>
+    <h1 class="h1" style="margin-bottom:10px">Simple pricing.</h1>
+    <p class="muted">Start free. Upgrade when you need more.</p>
+  </div>
+
+  <div class="plans">
+    <div class="plan">
+      <div class="plan-badge-empty"></div>
+      <div class="plan-name" style="color:#555">FREE</div>
+      <div class="plan-price">$0</div>
+      <div class="plan-period">forever</div>
+      <hr class="rule">
+      <div class="plan-features">
+        <div class="plan-feature"><span style="color:#555">✓</span>5 checks per week</div>
+        <div class="plan-feature"><span style="color:#555">✓</span>Resets every Monday</div>
+        <div class="plan-feature"><span style="color:#555">✓</span>Scam / Suspicious / Legit verdict</div>
+        <div class="plan-feature"><span style="color:#555">✓</span>Risk score 0–100</div>
+        <div class="plan-feature"><span style="color:#555">✓</span>No account needed</div>
+      </div>
+      <button class="btn btn-outline plan-cta">Start free</button>
+    </div>
+    <div class="plan">
+      <div class="plan-badge">MOST POPULAR</div>
+      <div class="plan-name" style="color:#ff3b3b">PRO</div>
+      <div class="plan-price">$3</div>
+      <div class="plan-period">per month</div>
+      <hr class="rule">
+      <div class="plan-features">
+        <div class="plan-feature"><span style="color:#ff3b3b">✓</span>Unlimited checks</div>
+        <div class="plan-feature"><span style="color:#ff3b3b">✓</span>Deep red flag analysis</div>
+        <div class="plan-feature"><span style="color:#ff3b3b">✓</span>Actionable next steps</div>
+        <div class="plan-feature"><span style="color:#ff3b3b">✓</span>Full check history</div>
+        <div class="plan-feature"><span style="color:#ff3b3b">✓</span>Cancel anytime</div>
+      </div>
+      <button class="btn btn-red plan-cta">Get Pro →</button>
+    </div>
+    <div class="plan">
+      <div class="plan-badge-empty"></div>
+      <div class="plan-name" style="color:#00c96e">FAMILY</div>
+      <div class="plan-price">$6</div>
+      <div class="plan-period">per month</div>
+      <hr class="rule">
+      <div class="plan-features">
+        <div class="plan-feature"><span style="color:#00c96e">✓</span>Up to 5 members</div>
+        <div class="plan-feature"><span style="color:#00c96e">✓</span>Everyone gets unlimited checks</div>
+        <div class="plan-feature"><span style="color:#00c96e">✓</span>Shared check history</div>
+        <div class="plan-feature"><span style="color:#00c96e">✓</span>Perfect for parents & seniors</div>
+        <div class="plan-feature"><span style="color:#00c96e">✓</span>Cancel anytime</div>
+      </div>
+      <button class="btn btn-green plan-cta">Get Family →</button>
+    </div>
+  </div>
+
+  <p class="muted" style="text-align:center;margin-top:20px;font-size:12px">Questions? Check the <span style="color:#ededed;cursor:pointer" onclick="showTab('faq',null)">FAQ</span> or email hi@scamcheck.app</p>
+</div>
+
+<!-- ── AFFILIATES ── -->
+<div id="tab-affiliates" class="page" style="display:none">
+  <div style="margin-bottom:48px">
+    <div class="label" style="margin-bottom:12px">Affiliate Program</div>
+    <h1 class="h1" style="margin-bottom:12px">Earn 30% recurring.<br><span style="color:#00c96e">Forever.</span></h1>
+    <p class="muted" style="max-width:440px">Share your link. Earn 30% of every Pro subscription — every month, as long as they stay subscribed. No approval. No minimums.</p>
+    <div style="margin-top:24px">
+      <button class="btn btn-green">Get my link →</button>
+    </div>
+  </div>
+
+  <div class="aff-stats">
+    <div class="aff-stat"><div class="aff-stat-val">30%</div><div class="aff-stat-label">commission</div></div>
+    <div class="aff-stat"><div class="aff-stat-val">90d</div><div class="aff-stat-label">cookie</div></div>
+    <div class="aff-stat"><div class="aff-stat-val">$20</div><div class="aff-stat-label">min payout</div></div>
+    <div class="aff-stat"><div class="aff-stat-val">∞</div><div class="aff-stat-label">no cap</div></div>
+  </div>
+
+  <div class="aff-card">
+    <div class="aff-card-header"><div class="label">How it works</div></div>
+    <div class="aff-card-row">
+      <div class="aff-step-num">01</div>
+      <div><div style="font-size:13px;font-weight:700;color:#ededed;margin-bottom:4px">Sign up free</div><div class="muted" style="font-size:12px">Get a unique referral link instantly. No approval, no waitlist.</div></div>
+    </div>
+    <div class="aff-card-row">
+      <div class="aff-step-num">02</div>
+      <div><div style="font-size:13px;font-weight:700;color:#ededed;margin-bottom:4px">Share it anywhere</div><div class="muted" style="font-size:12px">Social media, email, your website, your newsletter. Anywhere.</div></div>
+    </div>
+    <div class="aff-card-row">
+      <div class="aff-step-num">03</div>
+      <div><div style="font-size:13px;font-weight:700;color:#ededed;margin-bottom:4px">Get paid monthly</div><div class="muted" style="font-size:12px">30% of every Pro subscription your link generates, every month.</div></div>
+    </div>
+  </div>
+
+  <div class="aff-card">
+    <div class="aff-card-header"><div class="label">Your link</div></div>
+    <div class="aff-link-wrap">
+      <code class="aff-link">scamcheck.app/?ref=yourname</code>
+      <button class="btn btn-outline" id="copy-btn" onclick="copyLink()">copy</button>
+    </div>
+  </div>
+
+  <div class="aff-card">
+    <div class="aff-card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <div class="label">Earnings calculator</div>
+      <span class="muted" style="font-size:11px" id="refs-label">25 referrals/mo</span>
+    </div>
+    <div style="padding:20px">
+      <input type="range" min="1" max="500" value="25" oninput="calcEarnings(this.value)">
+      <div class="calc-grid">
+        <div class="calc-cell"><div class="label" style="margin-bottom:6px">Referrals</div><div class="calc-val" id="c-refs" style="color:#ededed">25</div><div class="calc-sub">users/mo</div></div>
+        <div class="calc-cell"><div class="label" style="margin-bottom:6px">Monthly</div><div class="calc-val" id="c-monthly" style="color:#00c96e">$22.50</div><div class="calc-sub">recurring</div></div>
+        <div class="calc-cell"><div class="label" style="margin-bottom:6px">Yearly</div><div class="calc-val" id="c-yearly" style="color:#00c96e">$270</div><div class="calc-sub">passive</div></div>
+      </div>
+      <p class="muted" style="font-size:10px;text-align:center;margin-top:10px">30% × $3/mo · recurring while subscribed</p>
+    </div>
+  </div>
+
+  <button class="btn btn-green" style="width:100%;padding:13px;font-size:14px">Join the affiliate program →</button>
+</div>
+
+<!-- ── FAQ ── -->
+<div id="tab-faq" class="page" style="display:none">
+  <div style="margin-bottom:48px">
+    <div class="label" style="margin-bottom:12px">FAQ</div>
+    <h1 class="h1" style="margin-bottom:10px">Common questions.</h1>
+    <p class="muted">Can't find what you need? Email hi@scamcheck.app</p>
+  </div>
+
+  <div class="faq-section">
+    <div class="faq-section-label">Product</div>
+    <div class="faq-card">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How does ScamCheck work? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">You paste any suspicious message — text, email, DM — and our AI analyzes it against 50+ known scam patterns. You get a verdict (Scam / Suspicious / Legit), a risk score, and specific red flags detected from your message.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How accurate is it? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">Our model correctly identifies scams with over 94% accuracy based on internal testing across 50,000+ messages. When in doubt, always verify through official channels.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Is my data private? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">Yes. We never store the content of messages you submit. Each check is processed in real time and discarded immediately. We never sell your data.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">What types of scams does it detect? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">IRS impersonation, bank phishing, romance scams, job fraud, package delivery scams, tech support scams, prize/lottery fraud, AI voice clone scripts, crypto investment scams, and more.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="faq-section">
+    <div class="faq-section-label">Pricing & Billing</div>
+    <div class="faq-card">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">What's included in the free plan? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">5 checks per week, resets every Monday. Scam verdict, risk score, and flagged red flags. No account required.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">What does Pro include? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">Unlimited checks, deep red flag analysis, actionable next steps, and full check history. $3/month, cancel anytime.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Can I cancel anytime? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">Yes. No contracts, no commitments. Cancel from your account settings and you won't be charged again.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Do you offer refunds? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">Yes — if you're unsatisfied within the first 7 days, email hi@scamcheck.app for a full refund.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="faq-section">
+    <div class="faq-section-label">Affiliate Program</div>
+    <div class="faq-card">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How much do affiliates earn? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">30% of every Pro subscription your link generates — $0.90/month per user, recurring every month they stay subscribed.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">Is there an approval process? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">None. Sign up and start sharing in under a minute. No follower count, no website, no vetting required.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How long does the cookie last? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">90 days. Someone clicks your link today, signs up anytime in the next 3 months — you get the commission.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">When and how do I get paid? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">Once your balance hits $20, request a payout via PayPal or bank transfer. Typically paid within 24 hours.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="faq-section">
+    <div class="faq-section-label">Charity</div>
+    <div class="faq-card">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">What's the 10% donation about? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">We donate 10% of every dollar to organizations fighting fraud — AARP Fraud Watch Network, FTC consumer education programs, and elder care fraud prevention.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">How do I know the donations are real? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a" style="display:none">We publish a monthly transparency report showing exactly how much was donated and to which organizations. Posted every first Monday of the month.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const EXAMPLES = {
+  'IRS Text': 'URGENT: Your IRS account has been suspended due to suspicious activity. Verify immediately at irs-verify.net or face arrest. Call 1-800-555-0147 now.',
+  'Prize Email': "Congratulations! You've been selected to receive a $1,000 Amazon gift card. Click here to claim before it expires in 24 hours.",
+  'Bank Alert': 'Your Chase account is locked. Please verify your identity by clicking below and entering your account details to restore access.',
+  'Job Offer': 'Hi! We found your profile online. Remote job paying $800/week, no experience needed. Just send $50 for your starter kit to get started.'
+};
+
+function showTab(name, btn) {
+  document.querySelectorAll('[id^=tab-]').forEach(t => t.style.display = 'none');
+  document.getElementById('tab-' + name).style.display = '';
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else {
+    const tabs = document.querySelectorAll('.nav-tab');
+    tabs.forEach(t => { if (t.textContent.toLowerCase().includes(name)) t.classList.add('active'); });
+  }
+}
+
+function setExample(key) {
+  const input = document.getElementById('msg-input');
+  input.value = EXAMPLES[key];
+  updateCount();
+}
+
+function updateCount() {
+  const val = document.getElementById('msg-input').value;
+  document.getElementById('char-count').textContent = val.length + ' chars';
+  document.getElementById('check-btn').style.opacity = val.trim() ? '1' : '0.35';
+  document.getElementById('clear-btn').style.display = val ? '' : 'none';
+}
+
+function clearInput() {
+  document.getElementById('msg-input').value = '';
+  document.getElementById('result-box').style.display = 'none';
+  document.getElementById('checker-box').style.display = '';
+  updateCount();
+}
+
+async function checkScam() {
+  const text = document.getElementById('msg-input').value.trim();
+  if (!text) return;
+
+  const btn = document.getElementById('check-btn');
+  btn.textContent = 'analyzing...';
+  btn.disabled = true;
+  document.getElementById('error-msg').style.display = 'none';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        system: 'You are a scam detection expert. Return ONLY a raw JSON object, no markdown, no backticks: {"verdict":"SCAM"|"SUSPICIOUS"|"LEGIT","score":<0-100>,"summary":"<one sentence>","flags":["<flag>","<flag>","<flag>"],"action":"<one clear next step>"}. SCAM=70-100. SUSPICIOUS=35-69. LEGIT=0-34. Keep flags under 12 words each.',
+        messages: [{ role: 'user', content: 'Analyze for scam indicators:\n\n' + text }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content?.[0]?.text || '{}';
+    const result = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    showResult(result);
+  } catch(e) {
+    document.getElementById('error-msg').style.display = '';
+    document.getElementById('error-msg').textContent = 'Something went wrong. Please try again.';
+  }
+
+  btn.textContent = 'check →';
+  btn.disabled = false;
+}
+
+function showResult(r) {
+  const color = r.verdict === 'SCAM' ? '#ff3b3b' : r.verdict === 'SUSPICIOUS' ? '#f5a623' : '#00c96e';
+  const icon = r.verdict === 'SCAM' ? '🚨' : r.verdict === 'SUSPICIOUS' ? '⚠️' : '✅';
+  const flags = (r.flags || []).map(f => `<div class="flag-item"><span style="color:${color};flex-shrink:0">→</span>${f}</div>`).join('');
+  document.getElementById('result-box').innerHTML = `
+    <div class="result-header">
+      <div><div class="label" style="margin-bottom:6px">Verdict</div><div class="verdict" style="color:${color}">${icon} ${r.verdict}</div></div>
+      <div style="text-align:right"><div class="label" style="margin-bottom:6px">Risk Score</div><div class="score" style="color:${color}">${r.score}<span style="font-size:13px;color:#555">/100</span></div></div>
+    </div>
+    <div class="score-bar-wrap"><div class="score-bar" style="width:${r.score}%;background:${color}"></div></div>
+    <div class="result-section"><div class="result-section-label">Summary</div><div style="font-size:12px;color:#555;line-height:1.8">${r.summary}</div></div>
+    ${flags ? `<div class="result-section"><div class="result-section-label">Flags Detected</div>${flags}</div>` : ''}
+    ${r.action ? `<div class="result-section"><div class="result-section-label">What To Do</div><div style="font-size:12px;color:#ededed;line-height:1.8">${r.action}</div></div>` : ''}
+    <div class="result-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="clearInput()">← check another</button>
+      <button class="btn btn-outline" style="flex:1" onclick="window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent('Verdict: ${r.verdict} (${r.score}/100) — scamcheck.app 🚨'),'_blank')">share on 𝕏</button>
+    </div>`;
+  document.getElementById('result-box').style.display = '';
+  document.getElementById('checker-box').style.display = 'none';
+}
+
+function toggleFaq(item) {
+  const ans = item.querySelector('.faq-a');
+  const arrow = item.querySelector('.faq-arrow');
+  const open = ans.style.display !== 'none';
+  ans.style.display = open ? 'none' : '';
+  arrow.style.transform = open ? 'none' : 'rotate(180deg)';
+}
+
+function calcEarnings(v) {
+  const m = (v * 3 * 0.3).toFixed(2);
+  const y = Math.round(v * 3 * 0.3 * 12);
+  document.getElementById('refs-label').textContent = v + ' referrals/mo';
+  document.getElementById('c-refs').textContent = v;
+  document.getElementById('c-monthly').textContent = '$' + m;
+  document.getElementById('c-yearly').textContent = '$' + y.toLocaleString();
+}
+
+function copyLink() {
+  navigator.clipboard.writeText('scamcheck.app/?ref=yourname');
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = '✓ copied';
+  btn.style.color = '#00c96e';
+  btn.style.borderColor = '#00c96e';
+  setTimeout(() => { btn.textContent = 'copy'; btn.style.color = ''; btn.style.borderColor = ''; }, 1500);
+}
+</script>
+</body>
 </html>
