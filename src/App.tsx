@@ -46,18 +46,13 @@ function HomePage() {
     if (!text.trim()) return;
     setLoading(true); setResult(null);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:1000,
-          system:`You are a scam detection expert. Respond ONLY with valid JSON, no markdown:
-{"verdict":"SCAM"|"LIKELY SCAM"|"SUSPICIOUS"|"LIKELY SAFE"|"SAFE","confidence":0-100,"summary":"1-2 sentences","red_flags":["..."],"advice":"one sentence"}`,
-          messages:[{ role:"user", content:`Analyze for scam indicators:\n\n${text}` }]
-        })
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
       });
-      const data = await res.json();
-      const raw = data.content?.[0]?.text || "{}";
-      setResult(JSON.parse(raw.replace(/```json|```/g,"").trim()));
+      const result = await res.json();
+      setResult(result);
     } catch { setResult({ verdict:"ERROR", summary:"Could not analyze. Please try again.", red_flags:[], advice:"", confidence:0 }); }
     setLoading(false);
   };
