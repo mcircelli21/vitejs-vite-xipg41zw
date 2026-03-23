@@ -1,474 +1,326 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
-const C = {
-  bg:      "#0a0a0a",
-  surface: "#111",
-  border:  "#1f1f1f",
-  text:    "#ededed",
-  muted:   "#555",
-  dim:     "#2a2a2a",
-  red:     "#ff3b3b",
-  green:   "#00c96e",
-  blue:    "#4f8ef7",
+const EXAMPLES: Record<string, string> = {
+  "IRS Text": "URGENT: IRS Notice - Your tax return has been flagged for review. You owe $2,847 in back taxes. Failure to pay within 24 hours will result in arrest. Call 1-800-555-0192 immediately to avoid legal action. DO NOT IGNORE THIS MESSAGE.",
+  "Prize Email": "Congratulations! You have been selected as the winner of our $1,000,000 sweepstakes! To claim your prize, please send us your full name, address, social security number, and a processing fee of $199 to prizes@lucky-winner-claim.net. This offer expires in 48 hours!",
+  "Bank Alert": "Wells Farg0 Security Alert: Your account has been compromised. Click here to verify your identity immediately: http://wellsfargo-secure-login.xyz/verify. Enter your username, password and SSN to restore access.",
+  "Job Offer": "Hi! I found your resume online. We're offering a $5,000/week work-from-home position, no experience needed! Just purchase our starter kit for $149 and you'll be earning within days. Reply with your personal info and we'll get you started right away!"
 };
 
-const mono = "'SF Mono','Fira Code','Cascadia Code',monospace";
+const RED = "#e53935";
+const RED_DIM = "#5a1a1a";
+const BG = "#0a0a0a";
+const CARD = "#111";
+const BORDER = "#2a2a2a";
+const MUTED = "#666";
+const TEXT = "#ccc";
+const FONT = "'Courier New', monospace";
 
-const btn = (primary) => ({
-  fontFamily: mono,
-  fontWeight: 700,
-  fontSize: 13,
-  padding: "10px 22px",
-  borderRadius: 6,
-  cursor: "pointer",
-  border: primary ? "none" : `1px solid ${C.border}`,
-  background: primary ? C.red : "transparent",
-  color: primary ? "#fff" : C.muted,
-  transition: "opacity .15s",
-});
-
-function Nav({ tab, setTab }) {
-  const tabs = ["Home", "Pricing", "Affiliates", "FAQ"];
+function Nav({ page, setPage }: { page: string; setPage: (p: string) => void }) {
   return (
-    <div style={{ borderBottom: `1px solid ${C.border}`, background: C.bg, position: "sticky", top: 0, zIndex: 50 }}>
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center" }}>
-        <div style={{ fontFamily: mono, fontWeight: 800, fontSize: 15, color: C.text, marginRight: 40, padding: "15px 0", flexShrink: 0 }}>
-          scamcheck<span style={{ color: C.red }}>.</span>
-        </div>
-        <div style={{ display: "flex", flex: 1 }}>
-          {tabs.map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              fontFamily: mono, background: "none", border: "none",
-              borderBottom: `2px solid ${tab === t ? C.red : "transparent"}`,
-              color: tab === t ? C.text : C.muted,
-              fontWeight: tab === t ? 700 : 400,
-              fontSize: 13, padding: "15px 16px",
-              cursor: "pointer", whiteSpace: "nowrap",
-            }}>
-              {t === "Affiliates" ? <span style={{ color: tab === t ? C.green : C.muted }}>✦ {t}</span> : t}
-            </button>
-          ))}
-        </div>
-        <button style={{ ...btn(true), padding: "8px 18px" }} onClick={() => setTab("Home")}>Try Free →</button>
+    <nav style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 2rem", borderBottom:`1px solid ${BORDER}`, height:56, background:BG, position:"sticky", top:0, zIndex:100 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:"2.5rem" }}>
+        <span onClick={() => setPage("home")} style={{ fontFamily:"system-ui,sans-serif", fontWeight:700, fontSize:18, cursor:"pointer", color:"#fff" }}>
+          scamcheck<span style={{ color:RED }}>.</span>
+        </span>
+        {([["home","Home"],["pricing","Pricing"],["affiliates","+ Affiliates"],["faq","FAQ"]] as [string,string][]).map(([id,label]) => (
+          <span key={id} onClick={() => setPage(id)} style={{ fontSize:14, color: page===id ? "#fff" : MUTED, cursor:"pointer", borderBottom: page===id ? `2px solid ${RED}` : "none", paddingBottom: page===id ? 2 : 0 }}>
+            {label}
+          </span>
+        ))}
       </div>
-    </div>
+      <button onClick={() => setPage("pricing")} style={{ background:RED, color:"#fff", border:"none", borderRadius:6, padding:"8px 20px", fontFamily:FONT, fontSize:13, cursor:"pointer", fontWeight:600 }}>
+        Try Free →
+      </button>
+    </nav>
   );
 }
 
-function Rule() {
-  return <div style={{ borderTop: `1px solid ${C.border}` }} />;
-}
-
-// ── HOME ───────────────────────────────────────────────────────────────────
-function Home() {
+function HomePage() {
   const [text, setText] = useState("");
+  const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  async function check() {
-    if (!text.trim() || loading) return;
-    setLoading(true); setResult(null); setError(null);
+  const analyze = async () => {
+    if (!text.trim()) return;
+    setLoading(true); setResult(null);
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 800,
-          system: `You are a scam detection expert. Return ONLY a raw JSON object, no markdown:
-{"verdict":"SCAM"|"SUSPICIOUS"|"LEGIT","score":<0-100>,"summary":"<one sentence>","flags":["<flag 1>","<flag 2>","<flag 3>"],"action":"<one clear next step>"}
-SCAM=70-100. SUSPICIOUS=35-69. LEGIT=0-34. Keep flags under 12 words each. Be specific to the text.`,
-          messages: [{ role: "user", content: `Analyze for scam indicators:\n\n${text}` }],
-        }),
+          model:"claude-sonnet-4-20250514", max_tokens:1000,
+          system:`You are a scam detection expert. Respond ONLY with valid JSON, no markdown:
+{"verdict":"SCAM"|"LIKELY SCAM"|"SUSPICIOUS"|"LIKELY SAFE"|"SAFE","confidence":0-100,"summary":"1-2 sentences","red_flags":["..."],"advice":"one sentence"}`,
+          messages:[{ role:"user", content:`Analyze for scam indicators:\n\n${text}` }]
+        })
       });
       const data = await res.json();
       const raw = data.content?.[0]?.text || "{}";
-      setResult(JSON.parse(raw.replace(/```json|```/g, "").trim()));
-    } catch { setError("Something went wrong. Try again."); }
+      setResult(JSON.parse(raw.replace(/```json|```/g,"").trim()));
+    } catch { setResult({ verdict:"ERROR", summary:"Could not analyze. Please try again.", red_flags:[], advice:"", confidence:0 }); }
     setLoading(false);
-  }
+  };
 
-  const examples = [
-    { label: "IRS Text", text: "URGENT: Your IRS account has been suspended due to suspicious activity. Verify at irs-verify.net or face arrest. Call 1-800-555-0147 now." },
-    { label: "Prize Email", text: "Congratulations! You've been selected to receive a $1,000 Amazon gift card. Claim within 24 hours before it expires." },
-    { label: "Bank Alert", text: "Your Chase account is locked. Verify your identity by clicking below and entering your account details to restore access." },
-    { label: "Job Offer", text: "Hi! We found your profile online. Remote job paying $800/week, no experience needed. Send $50 for your starter kit." },
-  ];
-
-  const vColor = result ? (result.verdict === "SCAM" ? C.red : result.verdict === "SUSPICIOUS" ? "#f5a623" : C.green) : C.muted;
+  const vc = (v: string) => ({ SCAM:"#e53935","LIKELY SCAM":"#ef6c00",SUSPICIOUS:"#f9a825","LIKELY SAFE":"#43a047",SAFE:"#2e7d32" }[v] || "#888");
+  const vbg = (v: string) => ({ SCAM:"#1a0000","LIKELY SCAM":"#1a0800",SUSPICIOUS:"#1a1400","LIKELY SAFE":"#001a04",SAFE:"#001a04" }[v] || "#1a1a1a");
 
   return (
-    <div style={{ maxWidth: 700, margin: "0 auto", padding: "64px 24px 100px" }}>
-
-      {/* Hero */}
-      <div style={{ marginBottom: 48, textAlign: "center" }}>
-        <div style={{ fontFamily: mono, fontSize: 11, color: C.muted, letterSpacing: 3, marginBottom: 16 }}>SCAM DETECTOR</div>
-        <h1 style={{ fontFamily: mono, fontSize: "clamp(28px,5vw,52px)", fontWeight: 800, color: C.text, letterSpacing: -1.5, lineHeight: 1.05, margin: "0 0 16px" }}>
-          Is that message<br /><span style={{ color: C.red }}>a scam?</span>
+    <div>
+      <div style={{ textAlign:"center", padding:"3.5rem 1rem 2rem" }}>
+        <div style={{ fontSize:11, letterSpacing:4, color:MUTED, marginBottom:"1.5rem" }}>SCAM DETECTOR</div>
+        <h1 style={{ fontSize:"clamp(2rem,6vw,3.5rem)", fontWeight:700, margin:0, lineHeight:1.15, color:"#fff" }}>
+          Is that message<br /><span style={{ color:RED }}>a scam?</span>
         </h1>
-        <p style={{ fontFamily: mono, fontSize: 13, color: C.muted, lineHeight: 1.8, maxWidth: 400, margin: "0 auto" }}>
+        <p style={{ color:MUTED, fontSize:14, marginTop:"1.2rem", lineHeight:1.8 }}>
           Paste any suspicious text, email, or DM.<br />AI tells you in seconds. Free, no account needed.
         </p>
       </div>
-
-      {/* Checker */}
-      {!result ? (
-        <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", background: C.surface }}>
-          <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: C.muted, marginRight: 4 }}>TRY EXAMPLE:</span>
-            {examples.map(e => (
-              <button key={e.label} onClick={() => setText(e.text)} style={{ fontFamily: mono, fontSize: 10, padding: "3px 9px", borderRadius: 4, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, cursor: "pointer" }}>
-                {e.label}
+      <div style={{ maxWidth:720, margin:"0 auto", padding:"0 1.5rem 3rem" }}>
+        <div style={{ background:CARD, border:`1px solid ${BORDER}`, borderRadius:10, overflow:"hidden" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"12px 16px", borderBottom:`1px solid #1e1e1e`, flexWrap:"wrap" }}>
+            <span style={{ fontSize:11, color:"#555", letterSpacing:1, marginRight:4 }}>TRY EXAMPLE:</span>
+            {Object.keys(EXAMPLES).map(label => (
+              <button key={label} onClick={() => { setText(EXAMPLES[label]); setResult(null); textareaRef.current?.focus(); }}
+                style={{ background:"transparent", border:`1px solid #333`, color:"#aaa", borderRadius:4, padding:"3px 10px", fontSize:12, cursor:"pointer", fontFamily:FONT }}>
+                {label}
               </button>
             ))}
           </div>
-          <textarea
-            value={text}
-            onChange={e => setText(e.target.value)}
+          <textarea ref={textareaRef} value={text} onChange={e => { setText(e.target.value); setResult(null); }}
             placeholder="Paste suspicious message here..."
-            style={{ width: "100%", minHeight: 160, padding: "16px", border: "none", background: "transparent", color: C.text, fontSize: 13, resize: "vertical", outline: "none", fontFamily: mono, lineHeight: 1.7, boxSizing: "border-box" }}
-          />
-          <Rule />
-          <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: C.muted }}>{text.length} chars</span>
-            <div style={{ display: "flex", gap: 8 }}>
-              {text && <button onClick={() => setText("")} style={{ ...btn(false), padding: "8px 14px" }}>clear</button>}
-              <button onClick={check} disabled={!text.trim() || loading} style={{ ...btn(true), opacity: text.trim() ? 1 : 0.35 }}>
-                {loading ? "analyzing..." : "check →"}
-              </button>
-            </div>
+            style={{ width:"100%", minHeight:180, background:"transparent", border:"none", outline:"none", color:TEXT, fontSize:14, fontFamily:FONT, padding:16, resize:"vertical", boxSizing:"border-box", lineHeight:1.7 }} />
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 16px", borderTop:`1px solid #1e1e1e` }}>
+            <span style={{ fontSize:12, color:"#555" }}>{text.length} chars</span>
+            <button onClick={analyze} disabled={loading || !text.trim()}
+              style={{ background: loading||!text.trim() ? RED_DIM : RED, color: loading||!text.trim() ? "#888" : "#fff", border:"none", borderRadius:6, padding:"9px 22px", fontFamily:FONT, fontSize:13, cursor: loading||!text.trim() ? "not-allowed":"pointer", fontWeight:600 }}>
+              {loading ? "analyzing..." : "check →"}
+            </button>
           </div>
-          {error && <div style={{ padding: "10px 16px", borderTop: `1px solid ${C.border}`, fontFamily: mono, fontSize: 12, color: C.red }}>{error}</div>}
         </div>
-      ) : (
-        <div style={{ border: `1px solid ${vColor}44`, borderRadius: 8, overflow: "hidden", background: C.surface }}>
-          {/* Verdict header */}
-          <div style={{ padding: "20px 24px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, letterSpacing: 3, marginBottom: 6 }}>VERDICT</div>
-              <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 800, color: vColor }}>{result.verdict === "SCAM" ? "🚨 " : result.verdict === "SUSPICIOUS" ? "⚠️ " : "✅ "}{result.verdict}</div>
+        {loading && <div style={{ textAlign:"center", padding:"2.5rem 0", color:"#555", fontSize:13, letterSpacing:2 }}>SCANNING MESSAGE...</div>}
+        {result && !loading && (
+          <div style={{ marginTop:"1.5rem", background:vbg(result.verdict), border:`1px solid ${vc(result.verdict)}44`, borderRadius:10, overflow:"hidden" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"20px 24px", borderBottom:`1px solid ${vc(result.verdict)}22` }}>
+              <div>
+                <div style={{ fontSize:11, letterSpacing:3, color:"#555", marginBottom:6 }}>VERDICT</div>
+                <div style={{ fontSize:"clamp(1.5rem,4vw,2.2rem)", fontWeight:700, color:vc(result.verdict), letterSpacing:1 }}>{result.verdict}</div>
+              </div>
+              {result.confidence > 0 && (
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontSize:11, letterSpacing:2, color:"#555", marginBottom:4 }}>CONFIDENCE</div>
+                  <div style={{ fontSize:28, fontWeight:700, color:vc(result.verdict) }}>{result.confidence}%</div>
+                </div>
+              )}
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, letterSpacing: 3, marginBottom: 6 }}>RISK SCORE</div>
-              <div style={{ fontFamily: mono, fontSize: 28, fontWeight: 800, color: vColor }}>{result.score}<span style={{ fontSize: 13, color: C.muted }}>/100</span></div>
+            <div style={{ padding:"16px 24px", borderBottom:`1px solid #1e1e1e` }}>
+              <p style={{ margin:0, fontSize:14, color:TEXT, lineHeight:1.7 }}>{result.summary}</p>
             </div>
-          </div>
-
-          {/* Score bar */}
-          <div style={{ padding: "0 24px", height: 4, background: C.dim }}>
-            <div style={{ height: "100%", width: `${result.score}%`, background: vColor, transition: "width 1s ease" }} />
-          </div>
-
-          {/* Summary */}
-          <div style={{ padding: "16px 24px", borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ fontFamily: mono, fontSize: 12, color: C.muted, lineHeight: 1.7 }}>{result.summary}</div>
-          </div>
-
-          {/* Flags */}
-          {result.flags?.length > 0 && (
-            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, letterSpacing: 3, marginBottom: 10 }}>FLAGS DETECTED</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {result.flags.map((f, i) => (
-                  <div key={i} style={{ display: "flex", gap: 10, fontFamily: mono, fontSize: 12, color: C.text }}>
-                    <span style={{ color: vColor, flexShrink: 0 }}>→</span>{f}
+            {result.red_flags?.length > 0 && (
+              <div style={{ padding:"16px 24px", borderBottom:`1px solid #1e1e1e` }}>
+                <div style={{ fontSize:11, letterSpacing:2, color:"#555", marginBottom:10 }}>RED FLAGS</div>
+                {result.red_flags.map((flag: string, i: number) => (
+                  <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:8, marginBottom:6 }}>
+                    <span style={{ color:RED, marginTop:2, fontSize:12 }}>▸</span>
+                    <span style={{ fontSize:13, color:"#bbb", lineHeight:1.6 }}>{flag}</span>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Action */}
-          {result.action && (
-            <div style={{ padding: "16px 24px", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, letterSpacing: 3, marginBottom: 8 }}>WHAT TO DO</div>
-              <div style={{ fontFamily: mono, fontSize: 12, color: C.text, lineHeight: 1.7 }}>{result.action}</div>
-            </div>
-          )}
-
-          <div style={{ padding: "12px 16px", display: "flex", gap: 8 }}>
-            <button onClick={() => { setResult(null); setText(""); }} style={{ ...btn(false), flex: 1 }}>← check another</button>
-            <button onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Verdict: ${result.verdict} (${result.score}/100) — checked with scamcheck.app 🚨`)}`, "_blank")} style={{ ...btn(false), flex: 1 }}>share on 𝕏</button>
+            )}
+            {result.advice && (
+              <div style={{ padding:"14px 24px" }}>
+                <div style={{ fontSize:11, letterSpacing:2, color:"#555", marginBottom:6 }}>ADVICE</div>
+                <p style={{ margin:0, fontSize:13, color:"#aaa", lineHeight:1.6 }}>{result.advice}</p>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* Trust row */}
-      <div style={{ display: "flex", gap: 28, justifyContent: "center", marginTop: 24, flexWrap: "wrap" }}>
-        {["5 free checks/week", "no account needed", "results in 3 seconds", "10% fights fraud"].map(t => (
-          <span key={t} style={{ fontFamily: mono, fontSize: 11, color: C.muted }}>{t}</span>
-        ))}
+        )}
       </div>
     </div>
   );
 }
 
-// ── PRICING ────────────────────────────────────────────────────────────────
-function Pricing() {
+function PricingPage() {
+  const [annual, setAnnual] = useState(false);
   const plans = [
-    {
-      name: "Free",
-      price: "$0",
-      sub: "forever",
-      color: C.muted,
-      features: ["5 checks per week", "Resets every Monday", "Scam / Suspicious / Legit verdict", "Risk score 0–100", "No account needed"],
-      cta: "Start free",
-      primary: false,
-    },
-    {
-      name: "Pro",
-      price: "$3",
-      sub: "per month",
-      color: C.red,
-      badge: "most popular",
-      features: ["Unlimited checks", "Deep red flag analysis", "Actionable next steps", "Check history log", "Cancel anytime"],
-      cta: "Get Pro →",
-      primary: true,
-    },
-    {
-      name: "Family",
-      price: "$6",
-      sub: "per month",
-      color: C.green,
-      features: ["Up to 5 members", "Everyone gets unlimited checks", "Shared check history", "Perfect for parents & seniors", "Cancel anytime"],
-      cta: "Get Family →",
-      primary: false,
-    },
+    { name:"Free", price:0, desc:"For casual users who need occasional checks", color:"#333", features:["3 scans per week","Basic scam verdict","Red flag breakdown","No account needed"], cta:"Get Started Free", highlight:false },
+    { name:"Pro", price: annual ? 4 : 5, desc:"Unlimited protection for one person", color:RED, features:["Unlimited scans","Priority AI analysis","Detailed threat reports","Email & SMS scan support","Scan history (30 days)"], cta:"Start Pro →", highlight:true },
+    { name:"Family", price: annual ? 12 : 15, desc:"Protect up to 5 family members", color:"#1565c0", features:["Everything in Pro","Up to 5 accounts","Family dashboard","Shared scan history","Priority support"], cta:"Start Family Plan →", highlight:false },
   ];
-
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto", padding: "64px 24px 100px" }}>
-      <div style={{ marginBottom: 48 }}>
-        <div style={{ fontFamily: mono, fontSize: 11, color: C.muted, letterSpacing: 3, marginBottom: 12 }}>PRICING</div>
-        <h1 style={{ fontFamily: mono, fontSize: "clamp(24px,4vw,40px)", fontWeight: 800, color: C.text, letterSpacing: -1, margin: "0 0 10px" }}>Simple pricing.</h1>
-        <p style={{ fontFamily: mono, fontSize: 13, color: C.muted }}>Start free. Upgrade when you need more.</p>
+    <div style={{ maxWidth:900, margin:"0 auto", padding:"4rem 1.5rem" }}>
+      <div style={{ textAlign:"center", marginBottom:"3rem" }}>
+        <div style={{ fontSize:11, letterSpacing:4, color:MUTED, marginBottom:"1rem" }}>PRICING</div>
+        <h1 style={{ fontSize:"clamp(1.8rem,4vw,2.8rem)", fontWeight:700, color:"#fff", margin:0 }}>Simple, transparent pricing</h1>
+        <p style={{ color:MUTED, fontSize:14, marginTop:"0.8rem" }}>No hidden fees. Cancel anytime.</p>
+        <div style={{ display:"inline-flex", alignItems:"center", gap:12, marginTop:"1.5rem", background:CARD, border:`1px solid ${BORDER}`, borderRadius:8, padding:"6px 12px" }}>
+          <span style={{ fontSize:13, color: annual ? MUTED : "#fff", cursor:"pointer" }} onClick={() => setAnnual(false)}>Monthly</span>
+          <div onClick={() => setAnnual(a => !a)} style={{ width:40, height:22, background: annual ? RED : "#333", borderRadius:11, cursor:"pointer", position:"relative", transition:"background 0.2s" }}>
+            <div style={{ position:"absolute", top:3, left: annual ? 21 : 3, width:16, height:16, background:"#fff", borderRadius:"50%", transition:"left 0.2s" }} />
+          </div>
+          <span style={{ fontSize:13, color: annual ? "#fff" : MUTED, cursor:"pointer" }} onClick={() => setAnnual(true)}>Annual <span style={{ color:"#43a047", fontSize:11 }}>save 20%</span></span>
+        </div>
       </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 1, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-        {plans.map((p, i) => (
-          <div key={p.name} style={{ background: C.surface, padding: "28px 24px", borderRight: i < 2 ? `1px solid ${C.border}` : "none", display: "flex", flexDirection: "column", gap: 0, position: "relative" }}>
-            {p.badge && (
-              <div style={{ fontFamily: mono, fontSize: 9, fontWeight: 700, color: C.red, letterSpacing: 2, border: `1px solid ${C.red}33`, borderRadius: 4, padding: "2px 7px", display: "inline-block", marginBottom: 14 }}>{p.badge.toUpperCase()}</div>
-            )}
-            {!p.badge && <div style={{ height: 22, marginBottom: 14 }} />}
-            <div style={{ fontFamily: mono, fontSize: 11, color: p.color, letterSpacing: 2, fontWeight: 700, marginBottom: 12 }}>{p.name.toUpperCase()}</div>
-            <div style={{ fontFamily: mono, fontSize: 36, fontWeight: 800, color: C.text, lineHeight: 1 }}>{p.price}</div>
-            <div style={{ fontFamily: mono, fontSize: 11, color: C.muted, marginBottom: 28, marginTop: 4 }}>{p.sub}</div>
-            <Rule />
-            <div style={{ marginTop: 20, marginBottom: 28, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:20 }}>
+        {plans.map(p => (
+          <div key={p.name} style={{ background: p.highlight ? "#1a0000" : CARD, border:`1px solid ${p.highlight ? RED+"66" : BORDER}`, borderRadius:12, padding:"1.75rem", display:"flex", flexDirection:"column" }}>
+            {p.highlight && <div style={{ background:RED, color:"#fff", fontSize:11, letterSpacing:2, textAlign:"center", borderRadius:4, padding:"3px 10px", marginBottom:16, alignSelf:"flex-start" }}>MOST POPULAR</div>}
+            <div style={{ fontSize:11, letterSpacing:3, color:p.color, marginBottom:8 }}>{p.name.toUpperCase()}</div>
+            <div style={{ display:"flex", alignItems:"baseline", gap:4, marginBottom:8 }}>
+              <span style={{ fontSize:36, fontWeight:700, color:"#fff" }}>{p.price === 0 ? "Free" : `$${p.price}`}</span>
+              {p.price > 0 && <span style={{ color:MUTED, fontSize:13 }}>/mo</span>}
+            </div>
+            <p style={{ color:MUTED, fontSize:13, marginBottom:"1.5rem", lineHeight:1.6 }}>{p.desc}</p>
+            <div style={{ flex:1 }}>
               {p.features.map(f => (
-                <div key={f} style={{ display: "flex", gap: 10, fontFamily: mono, fontSize: 12, color: C.muted }}>
-                  <span style={{ color: p.color, flexShrink: 0 }}>✓</span>{f}
+                <div key={f} style={{ display:"flex", gap:8, marginBottom:10, fontSize:13, color:TEXT, alignItems:"flex-start" }}>
+                  <span style={{ color: p.highlight ? RED : "#43a047", marginTop:1 }}>✓</span> {f}
                 </div>
               ))}
             </div>
-            <button style={{ ...btn(p.primary), width: "100%", textAlign: "center" }}>{p.cta}</button>
+            <button style={{ marginTop:"1.5rem", background: p.highlight ? RED : "transparent", color: p.highlight ? "#fff" : TEXT, border:`1px solid ${p.highlight ? RED : BORDER}`, borderRadius:6, padding:"10px 0", width:"100%", fontFamily:FONT, fontSize:13, cursor:"pointer", fontWeight:600 }}>
+              {p.cta}
+            </button>
           </div>
         ))}
       </div>
-
-      {/* FAQ teaser */}
-      <div style={{ marginTop: 24, fontFamily: mono, fontSize: 12, color: C.muted, textAlign: "center" }}>
-        Questions? Check the <span style={{ color: C.text, cursor: "pointer", textDecoration: "underline" }}>FAQ</span> or email us at hi@scamcheck.app
+      <div style={{ textAlign:"center", marginTop:"3rem", color:MUTED, fontSize:13 }}>
+        All plans include end-to-end encrypted analysis. Your messages are never stored.
       </div>
     </div>
   );
 }
 
-// ── AFFILIATES ─────────────────────────────────────────────────────────────
-function Affiliates() {
-  const [refs, setRefs] = useState(25);
+function AffiliatesPage() {
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const [copied, setCopied] = useState(false);
-  const monthly = (refs * 3 * 0.3).toFixed(2);
-  const yearly = (refs * 3 * 0.3 * 12).toFixed(0);
-  function copy() { navigator.clipboard.writeText("scamcheck.app/?ref=yourname"); setCopied(true); setTimeout(() => setCopied(false), 1500); }
+  const refCode = "DEMO-XK9F2";
+  const stats = [{ label:"Commission Rate", val:"20%" }, { label:"Cookie Duration", val:"90 days" }, { label:"Payout Threshold", val:"$25" }, { label:"Payout Schedule", val:"Monthly" }];
+  const steps = [
+    { n:"01", title:"Sign up free", desc:"Create your affiliate account in under 2 minutes. No approval wait time." },
+    { n:"02", title:"Get your link", desc:"You'll get a unique referral link to share anywhere — social, email, blog, wherever." },
+    { n:"03", title:"Earn 20% forever", desc:"When someone subscribes through your link, you earn 20% of every payment they ever make. Recurring, forever." },
+  ];
+  const copyCode = () => { navigator.clipboard?.writeText(`https://scamcheck.store?ref=${refCode}`); setCopied(true); setTimeout(() => setCopied(false), 2000); };
 
   return (
-    <div style={{ maxWidth: 700, margin: "0 auto", padding: "64px 24px 100px" }}>
-      <div style={{ marginBottom: 48 }}>
-        <div style={{ fontFamily: mono, fontSize: 11, color: C.muted, letterSpacing: 3, marginBottom: 12 }}>AFFILIATE PROGRAM</div>
-        <h1 style={{ fontFamily: mono, fontSize: "clamp(24px,4vw,40px)", fontWeight: 800, color: C.text, letterSpacing: -1, margin: "0 0 12px" }}>
-          Earn 30% recurring.<br /><span style={{ color: C.green }}>Forever.</span>
+    <div style={{ maxWidth:800, margin:"0 auto", padding:"4rem 1.5rem" }}>
+      <div style={{ textAlign:"center", marginBottom:"3rem" }}>
+        <div style={{ fontSize:11, letterSpacing:4, color:MUTED, marginBottom:"1rem" }}>AFFILIATE PROGRAM</div>
+        <h1 style={{ fontSize:"clamp(1.8rem,4vw,2.8rem)", fontWeight:700, color:"#fff", margin:0 }}>
+          Earn <span style={{ color:RED }}>20%</span> recurring commission
         </h1>
-        <p style={{ fontFamily: mono, fontSize: 13, color: C.muted, lineHeight: 1.8, maxWidth: 440 }}>
-          Share your link. Earn 30% of every Pro subscription — every month, as long as they stay subscribed. No approval. No minimums.
+        <p style={{ color:MUTED, fontSize:14, marginTop:"0.8rem", lineHeight:1.8 }}>
+          Refer anyone to ScamCheck. Every time they pay — you get paid.<br />No cap. No expiry. Forever.
         </p>
-        <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-          <button style={{ ...btn(false), borderColor: C.green, color: C.green }}>Get my link →</button>
-        </div>
       </div>
-
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", background: C.surface, marginBottom: 24 }}>
-        {[["30%", "commission"], ["90d", "cookie"], ["$20", "min payout"], ["∞", "no cap"]].map(([v, l], i) => (
-          <div key={l} style={{ padding: "20px 16px", textAlign: "center", borderRight: i < 3 ? `1px solid ${C.border}` : "none" }}>
-            <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 800, color: C.green }}>{v}</div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, marginTop: 4 }}>{l}</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:"3rem" }}>
+        {stats.map(s => (
+          <div key={s.label} style={{ background:CARD, border:`1px solid ${BORDER}`, borderRadius:10, padding:"1.2rem", textAlign:"center" }}>
+            <div style={{ fontSize:22, fontWeight:700, color:RED, marginBottom:4 }}>{s.val}</div>
+            <div style={{ fontSize:11, color:MUTED, letterSpacing:1 }}>{s.label.toUpperCase()}</div>
           </div>
         ))}
       </div>
-
-      {/* How it works */}
-      <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", background: C.surface, marginBottom: 24 }}>
-        <div style={{ padding: "12px 20px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, letterSpacing: 3 }}>HOW IT WORKS</div>
-        </div>
-        {[
-          ["01", "Sign up free", "Get a unique referral link instantly. No approval, no waitlist."],
-          ["02", "Share it anywhere", "Social media, email, your website, your newsletter — anywhere."],
-          ["03", "Get paid monthly", "30% of every Pro subscription your link generates, every single month."],
-        ].map(([n, title, desc], i) => (
-          <div key={n}>
-            {i > 0 && <Rule />}
-            <div style={{ padding: "18px 20px", display: "flex", gap: 16, alignItems: "flex-start" }}>
-              <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, paddingTop: 2, width: 20, flexShrink: 0 }}>{n}</div>
-              <div>
-                <div style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>{title}</div>
-                <div style={{ fontFamily: mono, fontSize: 12, color: C.muted, lineHeight: 1.7 }}>{desc}</div>
-              </div>
+      <div style={{ marginBottom:"3rem" }}>
+        <div style={{ fontSize:11, letterSpacing:3, color:MUTED, marginBottom:"1.5rem" }}>HOW IT WORKS</div>
+        {steps.map((s,i) => (
+          <div key={i} style={{ display:"flex", gap:20, marginBottom:24 }}>
+            <div style={{ fontSize:28, fontWeight:700, color:"#2a2a2a", minWidth:42, fontFamily:FONT }}>{s.n}</div>
+            <div>
+              <div style={{ fontSize:15, fontWeight:600, color:"#fff", marginBottom:4 }}>{s.title}</div>
+              <div style={{ fontSize:13, color:MUTED, lineHeight:1.7 }}>{s.desc}</div>
             </div>
           </div>
         ))}
       </div>
-
-      {/* Link */}
-      <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", background: C.surface, marginBottom: 24 }}>
-        <div style={{ padding: "12px 20px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, letterSpacing: 3 }}>YOUR LINK</div>
-        </div>
-        <div style={{ padding: "16px 20px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <code style={{ flex: 1, fontFamily: mono, fontSize: 13, color: C.green, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 4, padding: "10px 14px", minWidth: 180 }}>
-            scamcheck.app/?ref=yourname
-          </code>
-          <button onClick={copy} style={{ ...btn(false), borderColor: copied ? C.green : C.border, color: copied ? C.green : C.muted }}>
-            {copied ? "✓ copied" : "copy"}
+      <div style={{ background:"#0d1a0d", border:`1px solid #1a3a1a`, borderRadius:10, padding:"1.5rem", marginBottom:"3rem" }}>
+        <div style={{ fontSize:11, letterSpacing:3, color:"#43a047", marginBottom:12 }}>YOUR REFERRAL LINK (DEMO)</div>
+        <div style={{ display:"flex", gap:8 }}>
+          <div style={{ flex:1, background:"#0a0a0a", border:`1px solid ${BORDER}`, borderRadius:6, padding:"10px 14px", fontSize:13, color:TEXT, fontFamily:FONT, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            https://scamcheck.store?ref={refCode}
+          </div>
+          <button onClick={copyCode} style={{ background: copied ? "#43a047" : "transparent", color: copied ? "#fff" : TEXT, border:`1px solid ${BORDER}`, borderRadius:6, padding:"10px 16px", fontFamily:FONT, fontSize:13, cursor:"pointer", whiteSpace:"nowrap" }}>
+            {copied ? "Copied!" : "Copy link"}
           </button>
         </div>
+        <div style={{ fontSize:12, color:MUTED, marginTop:10 }}>Demo only — sign up below to get your real link and start earning.</div>
       </div>
-
-      {/* Calculator */}
-      <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", background: C.surface, marginBottom: 24 }}>
-        <div style={{ padding: "12px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between" }}>
-          <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, letterSpacing: 3 }}>EARNINGS CALCULATOR</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: C.muted }}>{refs} referrals/mo</div>
-        </div>
-        <div style={{ padding: "20px" }}>
-          <input type="range" min={1} max={500} value={refs} onChange={e => setRefs(+e.target.value)}
-            style={{ width: "100%", accentColor: C.green, cursor: "pointer", marginBottom: 20, height: 3 }} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1, border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden" }}>
-            {[["REFERRALS", refs, "users/mo", C.text], ["MONTHLY", `$${monthly}`, "recurring", C.green], ["YEARLY", `$${Number(yearly).toLocaleString()}`, "passive", C.green]].map(([l, v, sub, col]) => (
-              <div key={l} style={{ padding: "16px", textAlign: "center", background: C.bg, borderRight: `1px solid ${C.border}` }}>
-                <div style={{ fontFamily: mono, fontSize: 9, color: C.muted, letterSpacing: 2, marginBottom: 6 }}>{l}</div>
-                <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 800, color: col }}>{v}</div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, marginTop: 3 }}>{sub}</div>
-              </div>
-            ))}
+      {!submitted ? (
+        <div style={{ background:CARD, border:`1px solid ${BORDER}`, borderRadius:10, padding:"2rem" }}>
+          <div style={{ fontSize:15, fontWeight:600, color:"#fff", marginBottom:6 }}>Join the affiliate program</div>
+          <div style={{ fontSize:13, color:MUTED, marginBottom:"1.5rem" }}>Free to join. Start earning immediately after signup.</div>
+          <div style={{ display:"flex", gap:10 }}>
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com"
+              style={{ flex:1, background:"#0a0a0a", border:`1px solid ${BORDER}`, borderRadius:6, padding:"10px 14px", color:"#fff", fontFamily:FONT, fontSize:13, outline:"none" }} />
+            <button onClick={() => { if(email.includes("@")) setSubmitted(true); }}
+              style={{ background:RED, color:"#fff", border:"none", borderRadius:6, padding:"10px 22px", fontFamily:FONT, fontSize:13, cursor:"pointer", fontWeight:600 }}>
+              Apply Now →
+            </button>
           </div>
-          <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, marginTop: 10, textAlign: "center" }}>30% × $3/mo · recurring while subscribed</div>
         </div>
-      </div>
-
-      <button style={{ ...btn(false), borderColor: C.green, color: C.green, width: "100%", padding: "13px" }}>
-        Join the affiliate program →
-      </button>
+      ) : (
+        <div style={{ background:"#0d1a0d", border:`1px solid #2a4a2a`, borderRadius:10, padding:"2rem", textAlign:"center" }}>
+          <div style={{ fontSize:24, marginBottom:8 }}>🎉</div>
+          <div style={{ fontSize:15, fontWeight:600, color:"#fff", marginBottom:6 }}>You're on the list!</div>
+          <div style={{ fontSize:13, color:MUTED }}>We'll email you at <strong style={{ color:TEXT }}>{email}</strong> with your referral link within 24 hours.</div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── FAQ ────────────────────────────────────────────────────────────────────
-function FAQ() {
-  const [open, setOpen] = useState(null);
-
+function FAQPage() {
+  const [open, setOpen] = useState<number | null>(null);
   const faqs = [
-    {
-      section: "Product",
-      items: [
-        { q: "How does ScamCheck work?", a: "You paste any suspicious message — text, email, DM — and our AI analyzes it against 50+ known scam patterns. You get a verdict (Scam / Suspicious / Legit), a risk score, and specific red flags detected from your message." },
-        { q: "How accurate is it?", a: "Our model correctly identifies scams with over 94% accuracy based on internal testing across 50,000+ messages. It's not perfect — when in doubt, always verify through official channels." },
-        { q: "Is my data private?", a: "Yes. We never store the content of messages you submit. Each check is processed in real time and discarded. We never sell your data." },
-        { q: "What types of scams does it detect?", a: "IRS impersonation, bank phishing, romance scams, job fraud, package delivery scams, tech support scams, prize/lottery fraud, AI voice clone scripts, crypto investment scams, and more." },
-      ],
-    },
-    {
-      section: "Pricing & Billing",
-      items: [
-        { q: "What's included in the free plan?", a: "5 checks per week, resets every Monday. Basic verdict, risk score, and flagged red flags. No account required." },
-        { q: "What's included in Pro?", a: "Unlimited checks, deep red flag analysis with specific explanations, actionable next steps, and full check history. $3/month, cancel anytime." },
-        { q: "What's the Family plan?", a: "Up to 5 members, each with unlimited checks. Shared history so you can monitor what your family members are checking. $6/month." },
-        { q: "Can I cancel anytime?", a: "Yes. No contracts, no commitments. Cancel from your account settings and you won't be charged again." },
-        { q: "Do you offer refunds?", a: "Yes — if you're unsatisfied within the first 7 days of any paid plan, email hi@scamcheck.app for a full refund." },
-      ],
-    },
-    {
-      section: "Affiliate Program",
-      items: [
-        { q: "How much do affiliates earn?", a: "30% of every Pro subscription your referral link generates — recurring every month for as long as they stay subscribed. That's $0.90/month per user." },
-        { q: "Is there an approval process?", a: "None. Sign up and start sharing in under a minute. No follower count, no website, no vetting." },
-        { q: "How long does the affiliate cookie last?", a: "90 days. If someone clicks your link and subscribes anytime within 90 days, you earn the commission." },
-        { q: "When and how do I get paid?", a: "Request a payout once your balance hits $20. We pay via PayPal or bank transfer, typically within 24 hours." },
-      ],
-    },
-    {
-      section: "Charity",
-      items: [
-        { q: "What's the 10% donation about?", a: "We donate 10% of every dollar we make to organizations actively fighting fraud — AARP Fraud Watch Network, FTC consumer education programs, and elder care fraud prevention." },
-        { q: "How do I know the donations are real?", a: "We publish a monthly transparency report showing exactly how much was donated and to which organizations. Posted on our blog every first Monday." },
-      ],
-    },
+    { q:"How does ScamCheck work?", a:"You paste any suspicious message into ScamCheck and our AI analyzes it for known scam patterns, suspicious language, urgency tactics, phishing indicators, and more. You get a verdict in seconds." },
+    { q:"Is my data private? Are my messages stored?", a:"No. Your messages are analyzed in real time and never stored on our servers. We take privacy seriously — your conversations are end-to-end encrypted during analysis and immediately discarded." },
+    { q:"What's the difference between the plans?", a:"The Free plan gives you 3 scans per week with no account needed. Pro ($5/mo) gives one person unlimited scans, detailed threat reports, and scan history. Family ($15/mo) extends Pro to up to 5 accounts with a shared dashboard." },
+    { q:"Can I cancel my subscription anytime?", a:"Yes. No questions asked. You can cancel from your account settings at any time and you won't be charged again. You keep access until the end of your billing period." },
+    { q:"What types of scams can ScamCheck detect?", a:"ScamCheck detects phishing emails, IRS/government impersonation scams, fake prize winnings, job offer scams, bank fraud texts, romance scams, investment fraud, and many more." },
+    { q:"How does the affiliate program work?", a:"Sign up for free, get a unique referral link, and share it. Every time someone subscribes to a paid plan through your link, you earn 20% of every payment they make — recurring, forever, no cap." },
+    { q:"When and how do affiliates get paid?", a:"Payouts happen monthly once you hit the $25 minimum threshold. We pay via PayPal or bank transfer. You can track your referrals and earnings in your affiliate dashboard." },
+    { q:"Does the Family plan mean 5 separate accounts?", a:"Yes — the Family plan includes up to 5 individual accounts, each with their own login and unlimited scans. One family admin can manage all accounts from a shared dashboard." },
   ];
-
-  let globalIndex = 0;
-
   return (
-    <div style={{ maxWidth: 700, margin: "0 auto", padding: "64px 24px 100px" }}>
-      <div style={{ marginBottom: 48 }}>
-        <div style={{ fontFamily: mono, fontSize: 11, color: C.muted, letterSpacing: 3, marginBottom: 12 }}>FAQ</div>
-        <h1 style={{ fontFamily: mono, fontSize: "clamp(24px,4vw,40px)", fontWeight: 800, color: C.text, letterSpacing: -1, margin: "0 0 10px" }}>Common questions.</h1>
-        <p style={{ fontFamily: mono, fontSize: 13, color: C.muted }}>Can't find what you need? Email hi@scamcheck.app</p>
+    <div style={{ maxWidth:680, margin:"0 auto", padding:"4rem 1.5rem" }}>
+      <div style={{ textAlign:"center", marginBottom:"3rem" }}>
+        <div style={{ fontSize:11, letterSpacing:4, color:MUTED, marginBottom:"1rem" }}>FAQ</div>
+        <h1 style={{ fontSize:"clamp(1.8rem,4vw,2.8rem)", fontWeight:700, color:"#fff", margin:0 }}>Frequently asked questions</h1>
+        <p style={{ color:MUTED, fontSize:14, marginTop:"0.8rem" }}>Everything you need to know about ScamCheck.</p>
       </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {faqs.map(section => (
-          <div key={section.section}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: C.muted, letterSpacing: 3, marginBottom: 10 }}>{section.section.toUpperCase()}</div>
-            <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", background: C.surface }}>
-              {section.items.map((item, i) => {
-                const idx = globalIndex++;
-                return (
-                  <div key={item.q}>
-                    {i > 0 && <Rule />}
-                    <div onClick={() => setOpen(open === idx ? null : idx)} style={{ cursor: "pointer" }}>
-                      <div style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                        <div style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: C.text }}>{item.q}</div>
-                        <span style={{ color: C.muted, fontSize: 12, flexShrink: 0, transform: open === idx ? "rotate(180deg)" : "none", transition: "transform .2s" }}>▾</span>
-                      </div>
-                      {open === idx && (
-                        <div style={{ padding: "0 20px 16px", fontFamily: mono, fontSize: 12, color: C.muted, lineHeight: 1.8, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
-                          {item.a}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+      <div>
+        {faqs.map((f,i) => (
+          <div key={i} style={{ borderBottom:`1px solid ${BORDER}` }}>
+            <div onClick={() => setOpen(open === i ? null : i)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"1.2rem 0", cursor:"pointer" }}>
+              <span style={{ fontSize:14, color: open===i ? "#fff" : TEXT, fontWeight: open===i ? 600 : 400 }}>{f.q}</span>
+              <span style={{ color:RED, fontSize:18, lineHeight:1, marginLeft:16, display:"inline-block", transform: open===i ? "rotate(45deg)" : "rotate(0)", transition:"transform 0.2s" }}>+</span>
             </div>
+            {open === i && <div style={{ paddingBottom:"1.2rem" }}><p style={{ margin:0, fontSize:13, color:MUTED, lineHeight:1.8 }}>{f.a}</p></div>}
           </div>
         ))}
       </div>
+      <div style={{ textAlign:"center", marginTop:"3rem", background:CARD, border:`1px solid ${BORDER}`, borderRadius:10, padding:"2rem" }}>
+        <div style={{ fontSize:14, color:"#fff", fontWeight:600, marginBottom:6 }}>Still have questions?</div>
+        <p style={{ fontSize:13, color:MUTED, margin:"0 0 1rem" }}>We're happy to help. Reach out anytime.</p>
+        <button style={{ background:RED, color:"#fff", border:"none", borderRadius:6, padding:"9px 22px", fontFamily:FONT, fontSize:13, cursor:"pointer", fontWeight:600 }}>
+          Contact Support →
+        </button>
+      </div>
     </div>
   );
 }
 
-// ── ROOT ───────────────────────────────────────────────────────────────────
 export default function App() {
-  const [tab, setTab] = useState("Home");
-  const pages = { Home: <Home />, Pricing: <Pricing />, Affiliates: <Affiliates />, FAQ: <FAQ /> };
+  const [page, setPage] = useState("home");
   return (
-    <div style={{ fontFamily: mono, background: C.bg, minHeight: "100vh", color: C.text }}>
-      <style>{`* { box-sizing: border-box; margin: 0; padding: 0; } textarea::placeholder { color: #333; } ::-webkit-scrollbar { width: 3px; } ::-webkit-scrollbar-thumb { background: #222; }`}</style>
-      <Nav tab={tab} setTab={setTab} />
-      <div key={tab}>{pages[tab]}</div>
+    <div style={{ background:BG, minHeight:"100vh", color:"#fff", fontFamily:FONT }}>
+      <Nav page={page} setPage={setPage} />
+      {page === "home" && <HomePage />}
+      {page === "pricing" && <PricingPage />}
+      {page === "affiliates" && <AffiliatesPage />}
+      {page === "faq" && <FAQPage />}
     </div>
   );
 }
